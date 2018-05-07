@@ -122,22 +122,12 @@ class MyCard implements MyCardInterface
         }
 
         $response = $this->get($url, $parameter);
-        // var_dump($url);
-        // var_dump($pre_hash_value);
-        // var_dump(http_build_query($parameter));
-        // \Log::info("MyCard原串".$pre_hash_value);
-        // \Log::info("MyCard预请求:" . $url, $parameter);
-        // \Log::info("MyCard预请求返回", $response);
-        // var_dump($response);
-        // //MyCard要求这里必须记录, 因为他们的差异报表
-        // $domain_order = Order::where('order_sn', '=', $order->order_sn)->first();
-        // $domain_order->ext1 = $response['TradeSeq'];
-        // $domain_order->ext2 = $response['AuthCode'];//AuthCode必须落地
-        // $domain_order->save();
 
-        // //authcode要保存在redis中
-        // app('phpredis')->setex($response['AuthCode'], 3000, json_encode($order));
-        // app('phpredis')->setex($order->order_sn, 3000, $response['AuthCode']);
+        //string 1为成功, 其他为失败
+        if ($response['ReturnCode'] !== '1') {
+            throw new AuthCodeException($response['ReturnMsg'], 200, $response);
+        }
+
         return $response;
 
     }
@@ -150,6 +140,10 @@ class MyCard implements MyCardInterface
      */
     public function getWebUrlByAuthCode($auth_code)
     {
+        if (empty($auth_code)) {
+            throw new AuthCodeException("auth_code为空", 200, null);
+        }
+
         if (false === $this->is_sandbox) {
             $url = self::ENDPOINT_REDIRECT;
         } else {
@@ -171,6 +165,10 @@ class MyCard implements MyCardInterface
      */
     public function query($auth_code)
     {
+        if (empty($auth_code)) {
+            throw new AuthCodeException("auth_code为空", 200, null);
+        }
+
         $parameter = [
             'AuthCode' => $auth_code,
         ];
@@ -182,13 +180,12 @@ class MyCard implements MyCardInterface
         }
 
         $response = $this->get($url);
-        return $response;
-        if ($response['PayResult'] ===  "3") {
-            //交易結果代碼 交易成功為 3;交易失敗為 0
-            return $response;
-        } else {
-            throw new \Exception("{$response['ReturnMsg']}", 0);
+
+        if ($response['ReturnCode'] !== '1') {
+            throw new QueryException($response['ReturnMsg'], 200, $response);
         }
+
+        return $response;
     }
 
     /**
@@ -199,6 +196,10 @@ class MyCard implements MyCardInterface
      */
     public function confirm($auth_code)
     {
+        if (empty($auth_code)) {
+            throw new AuthCodeException("auth_code为空", 200, null);
+        }
+
         $parameter = [
             'AuthCode' => $auth_code,
         ];
@@ -210,15 +211,11 @@ class MyCard implements MyCardInterface
         }
 
         $response = $this->get($url);
-        return $response;
+
         if ($response['ReturnCode'] ===  "1") {
-            return [
-                'ret' => 1,
-                'msg' => $response['ReturnMsg'],
-                'content' => $response,
-            ];
+            return $response;
         } else {
-            throw new \Exception("{$response['ReturnMsg']}", 0);
+            throw new QueryException($response['ReturnMsg'], 200, $response);
         }
     }
 
@@ -230,6 +227,20 @@ class MyCard implements MyCardInterface
      */
     public function verifyCardAndPassword($auth_code, $card_id, $card_pw)
     {
+        //VerifyCardAndPasswordException
+        if (empty($auth_code)) {
+            throw new VerifyCardAndPasswordException("auth_code为空", 200, null);
+        }
+
+        if (empty($card_id)) {
+            throw new VerifyCardAndPasswordException("卡号为空", 200, null);
+        }
+
+        if (empty($card_pw)) {
+            throw new VerifyCardAndPasswordException("密码为空", 200, null);
+        }
+
+
         $parameter = [
             'AuthCode' => $auth_code,
             'CardID' => $card_id,
@@ -261,10 +272,12 @@ class MyCard implements MyCardInterface
         }
 
         $response = $this->get($url, $parameter);
-        var_dump($url);
-        // var_dump($pre_hash_value);
-        var_dump(http_build_query($parameter));
-        var_dump($response);die;
+
+        //string 1为成功, 其他为失败
+        if ($response['ReturnCode'] !== '1') {
+            throw new AuthCodeException($response['ReturnMsg'], 200, $response);
+        }
+
         return $response;
     }
 
